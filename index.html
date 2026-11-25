@@ -1,0 +1,150 @@
+<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; connect-src 'self' https://api.deadlock-api.com; worker-src 'self'"><title>-</title><script>function main(HASH,send){
+var q=HASH.split(','),A=+q[0],m=q[1],last,
+K=('rwk'.includes(m)?'dp4:':'dp:')+q.join(','),S=localStorage,
+load=k=>{try{return S.getItem(k)}catch(e){}},
+save=(k,v)=>{try{S.setItem(k,v)}catch(e){try{Object.keys(S).filter(x=>/^dp(3|4|wait|rec2?)?:/.test(x)).forEach(x=>S.removeItem(x));S.setItem(k,v)}catch(e){}}},
+show=(s,kind)=>send(kind,s),
+hold=s=>{let l=(load('dplast')||'').split(' ').filter(k=>k&&k!=K&&(k.startsWith('dp4:')||S.removeItem(k)));l.push(K);while(l.length>14)try{S.removeItem(l.shift())}catch(e){}save('dplast',l.join(' '));save(K,s);show(s,'f')},
+P=s=>{if(m!='o'){save(K,s);save('dpt'+K,''+Date.now())}show(s,'f')},
+G=u=>{let w='dpwait:'+u.split('?')[0],one=/^matches\/\d/.test(u);if(!one)w=w.replace(/\d+/g,'n');let [gl,gt]=(load('dpleft')||'').split('|');if(Date.now()<+load(w)||/^analytics/.test(u)&&gl!==''&&+gl<(/curve/.test(u)?.02:.16)&&Date.now()-gt<3e5)return Promise.reject(429);return fetch('https://api.deadlock-api.com/v1/'+u).then(r=>{if(r.status==429||r.status==503&&!one)save(w,''+(Date.now()+Math.min(600,Math.max(60,+r.headers.get('Retry-After')||180))*1e3));let g=r.headers.get('ratelimit-remaining');let gm=+r.headers.get('ratelimit-limit');if(g&&gm>=2e4&&gm<3e5)save('dpleft',g/gm+'|'+Date.now());if(!r.ok)throw r.status;return r.json()})},
+GM=(id,n=3)=>G('matches/'+id+'/metadata').catch(e=>{if(e==429||!n)throw e;return new Promise(r=>setTimeout(r,6e3)).then(()=>GM(id,n-1))}),
+D=u=>fetch('data/'+u).then(r=>{if(!r.ok)throw 0;return r.json()}),
+TTL={t:120,h:120,b:600,g:300,u:600,m:900,v:120},young=()=>TTL[m]&&Date.now()-(+load('dpt'+K)||0)<TTL[m]*1e3,
+W=(m,o=m.player_match_outcome)=>o?o==1?1:o==2?0:-1:+(m.match_result==m.player_team),
+H=()=>G('players/'+A+'/match-history').then(l=>{l.sort((a,b)=>b.start_time-a.start_time);for(let k of 'th'){let x='dp:'+A+','+k;if(x!=K){save(x,FROM[k](l));save('dpt'+x,''+Date.now())}}return l}),
+FROM={
+h:l=>l.slice(0,1200).map(m=>[m.match_duration_s.toString(36),((m.start_time/60|0)%60).toString(36),Math.round(m.net_worth/100).toString(36),m.player_kills,m.player_deaths,m.player_assists,m.hero_id,W(m),m.match_id.toString(36)].join()).join(';')||'-',
+t:l=>{let h={};l.map(m=>{let w=W(m);if(w<0||m.game_mode!=1)return;let x=h[m.hero_id]=h[m.hero_id]||{i:m.hero_id,n:0,w:0,s:0,o:1,b:0,r:0};x.n++;x.w+=w;if(w){x.s+=x.o;x.r++;x.b=Math.max(x.b,x.r)}else x.o=x.r=0});return Object.values(h).sort((a,b)=>b.n-a.n).map(x=>[x.i,x.n,x.w,x.s,x.b].join()).join(';')||'-'}};
+var AB='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_',RAD=10752,GRID=400,STEP=3;
+function pack(d,acc){
+let D=d.duration_s,n36=v=>Math.round(v).toString(36),gx=x=>Math.max(0,Math.min(GRID,Math.round((x+RAD)/2/RAD*GRID))),gy=y=>gx(-y),
+pl=d.players.slice().sort((a,b)=>a.team-b.team||a.player_slot-b.player_slot),ix={},ph={},at=[];
+pl.map((p,i)=>ix[p.player_slot]=i);d.match_paths.paths.map(p=>ph[p.player_slot]=p);
+let deaths=[],paths=[],hp=[];
+pl.map((p,i)=>{
+let P=ph[p.player_slot],dd=(p.death_details||[]).slice().sort((a,b)=>a.game_time_s-b.game_time_s);
+dd.map(k=>k.death_pos&&deaths.push([i,n36(k.game_time_s),ix[k.killer_player_slot]==null?'':ix[k.killer_player_slot],n36(gx(k.death_pos.x)),n36(gy(k.death_pos.y)),n36(k.death_duration_s||0)]));
+if(!P){paths.push('');hp.push('');return}
+let h=P.health,runs=[],an=[[0,0]],cur=0;
+for(let a=0,b;a<h.length;a++)if(!h[a]){for(b=a;b<h.length&&!h[b];)b++;runs.push([a,b-a]);a=b}
+dd.map(k=>{let r=runs.find(r=>{let o=r[0]-1-k.game_time_s;return o>=cur-1&&o<=cur+90&&(Math.abs(r[1]-k.death_duration_s)<=4||r[0]+r[1]>=h.length||r[1]>6&&r[1]<k.death_duration_s)});if(r){cur=Math.max(cur,r[0]-1-k.game_time_s);an.push([k.game_time_s,cur])}});
+if(h.length-1-D>cur)an.push([D,h.length-1-D]);
+let off=t=>{for(let j=1;j<an.length;j++)if(t<=an[j][0]){let a=an[j-1],b=an[j];return a[1]+(b[1]-a[1])*(t-a[0])/Math.max(1,b[0]-a[0])}return an[an.length-1][1]},
+X=v=>P.x_min+(P.x_max-P.x_min)*v/(d.match_paths.x_resolution||16383),Y=v=>P.y_min+(P.y_max-P.y_min)*v/(d.match_paths.y_resolution||16383),s='',e='',lx=0,ly=0,
+put=(v,l)=>Math.abs(v-l)<=31?AB[v-l+31]:'_'+AB[v>>6]+AB[v&63];
+at[i]=t=>{let k=Math.min(h.length-1,Math.max(0,Math.round(t+off(t))));return[X(P.x_pos[k]),Y(P.y_pos[k]),h[k]]};
+for(let t=0,c=0;t<=D;t+=STEP,c++){
+let k=Math.min(h.length-1,Math.max(0,Math.round(t+off(t)))),gone=t+off(t)>h.length+2,x=gx(X(P.x_pos[k])),y=gy(Y(P.y_pos[k]));
+s+=put(x,lx)+put(y,ly);lx=x;ly=y;
+if(c%2==0)e+=AB[gone||!h[k]?0:Math.max(1,Math.round(h[k]*.61))]}
+paths.push(s);hp.push(e)});
+let st=pl.reduce((a,p)=>(p.stats||[]).length>a.length?p.stats:a,[]).map(x=>x.time_stamp_s);
+return[[1,D,d.winning_team,pl.findIndex(p=>p.account_id==acc),STEP,GRID].join(),
+pl.map(p=>p.team+','+p.hero_id).join('/'),deaths.sort((a,b)=>parseInt(a[1],36)-parseInt(b[1],36)).map(x=>x.join()).join('/'),
+(d.objectives||[]).filter(o=>o.destroyed_time_s>0).map(o=>[o.team,o.team_objective_id,n36(o.destroyed_time_s)].join()).join('/'),
+(d.mid_boss||[]).map(b=>[b.team_claimed,n36(b.destroyed_time_s)].join()).join('/'),
+st.map(n36).join(),pl.map(p=>st.map(t=>{let v=600;(p.stats||[]).map(x=>{if(x.time_stamp_s<=t)v=x.net_worth});return n36(v)}).join()).join('/'),
+paths.join('.'),hp.join('.'),taken(pl,st,at,D).map(e=>[e[0],e[1],e[2],n36(e[3]),e[4]==null?n36(-400):n36(gx(e[4])),e[4]==null?n36(-400):n36(gy(e[5]))].join()).join('/')].join(';')}
+var URN=[[-6592,-8],[6304,-96]],RIFT=[[-7648,0],[7648,0]];
+function taken(pl,st,at,D){
+let T=[0,...st],ev=[],last=-999,
+g=(p,t)=>{let v=0;(p.stats||[]).map(s=>{if(s.time_stamp_s<=t)v=s.gold_treasure||0});return t?v:0},
+far=(n,t,z)=>{let a=at[n]&&at[n](t);return a?Math.hypot(a[0]-z[0],a[1]-z[1]):1e9};
+for(let j=1;j<T.length;j++){let a=T[j-1],b=Math.min(T[j],D);
+[0,1].map(tm=>{
+let ids=pl.map((p,i)=>i).filter(i=>pl[i].team==tm),inc=ids.map(i=>g(pl[i],T[j])-g(pl[i],a)),s=inc.slice().sort((x,y)=>x-y),mid=s[Math.floor((s.length-1)/2)]||0;
+ids.map((i,n)=>[i,inc[n]]).filter(x=>x[1]-mid>=250).sort((x,y)=>y[1]-x[1]).map(([i,v],n)=>{if(n&&v<900)return;let best=[260],vis=[];for(let t=Math.max(0,a-60);t<b;t++)URN.map((z,s)=>{let d=far(i,t,z);if(d>=260)return;let l=vis.filter(q=>q.s==s).pop();if(l&&t-l.e<=8){l.e=t;if(t>=a&&d<l.d){l.d=d;l.t=t}}else vis.push({s,z,b:t,e:t,d:t>=a?d:1e9,t})});
+vis.filter(q=>q.d<260&&vis.some(p=>p.s!=q.s&&q.b-p.e>=12&&q.b-p.e<=60)).map(q=>{if(q.d<best[0])best=[q.d,q.t,q.z]});
+if(!best[1])vis.map(q=>{if(q.d<best[0])best=[q.d,q.t,q.z]});if(best[1])ev.push([0,tm,i,best[1],...best[2]])});
+if(mid<150)return;
+let runs=[];
+RIFT.map(z=>{let r=null;for(let t=Math.max(a,last+300,690);t<=b;t++){let c=[0,0];pl.map((p,i)=>{let q=at[i]&&at[i](t);if(q&&q[2]&&Math.hypot(q[0]-z[0],q[1]-z[1])<787)c[p.team]++});
+if(c[tm]&&!c[1-tm]){if(r&&t-r.e<=6)r.n++;else{r={n:1,z,s:t};runs.push(r)}r.e=t}}});
+let r=runs.sort((x,y)=>y.n-x.n)[0];
+if(r&&r.n>=4){last=r.e;ev.push([1,tm,'',r.e,...r.z])}else{last=Math.max(last,a);ev.push([1,tm,'',b,null,null])}})}
+return ev.sort((x,y)=>x[3]-y[3])}
+var hash=s=>{let v=2166136261;for(let c of s.toLowerCase().replace(/[^\p{L}\p{N}]/gu,''))v=Math.imul(v^c.codePointAt(0),16777619);return(v>>>0).toString(36)},
+res=p=>{let v=k=>p[k]?parseFloat(p[k].value)||0:0;return Math.round(v('BulletResist')+v('BuffBulletResist')+v('BulletResistBelowThreshold')/2-v('TechResist')-v('BuffTechResist')-v('TechResistBelowThreshold')/2)},
+names=lang=>{lang=/^\w+$/.test(lang||'')?lang:'english';let L=l=>G('assets/items/by-type/upgrade?language='+l);return Promise.all([L('english'),lang=='english'?null:L(lang).catch(()=>null)]).then(([a,b])=>{let n={};(b||[]).map(x=>n[x.id]=x.name);return a.filter(x=>x.name&&x.item_tier).map(x=>({i:x.id,t:x.item_tier,e:hash(x.name),l:hash(n[x.id]||x.name),r:res(x.properties||{}),s:x.shopable&&x.item_tier<5,f:(x.shop_image||'').split('/').slice(-2).join('/'),n:x.name}))})};
+function shop(r,enemies,more){
+let [items,own,worth,versus,all,...foes]=r,M=l=>{let o={};l.map(x=>o[x.item_id]=[x.wins,x.matches]);return o},wr=x=>x[0]/x[1],
+O=M(own),A=M(all),V={},N={},F=foes.map(M),byId={};
+items.map(x=>byId[x.i]=x);
+versus.map(x=>(V[x.bucket]=V[x.bucket]||{})[x.item_id]=[x.wins,x.matches]);
+worth.map(x=>{let b=Math.min(9,x.bucket/5000|0),k=(N[b]=N[b]||{}),c=k[x.item_id]||[0,0];k[x.item_id]=[c[0]+x.wins,c[1]+x.matches]});
+let tier=(b,t)=>{let w=0,n=0;Object.entries(N[b]||{}).map(([i,x])=>{if(byId[i]&&byId[i].t==t){w+=x[0];n+=x[1]}});return n>200?w/n:null},T={};
+let TM={},top=k=>TM[k]??(TM[k]=Math.max(1,...Object.entries(N[k]||{}).filter(([i])=>byId[i]&&byId[i].s).map(([i,x])=>x[1])));
+let LC={},L=(a,b,t,key)=>LC[key+=t]??(LC[key]=(()=>{let s=0,n=0;items.map(x=>{let c=a[x.i],d=b[x.i];if(x.t==t&&c&&d){s+=(wr(c)-wr(d))*c[1];n+=c[1]}});return n?s/n:0})());
+return items.filter(x=>O[x.i]).map(x=>{let i=x.i,m=[];
+enemies.forEach((e,k)=>{let f=F[k][i],v=(V[e]||{})[i],g=0;
+if(f&&A[i]&&f[1]>500)g=(wr(f)-wr(A[i])-L(F[k],A,x.t,'f'+k))*f[1]/(f[1]+2000);
+if(v&&v[1]>200){let h=wr(v)-wr(O[i])-L(V[e],O,x.t,'v'+k);g+=(h-g)*v[1]/(v[1]+9000)}
+m.push(g)});
+let b=[];for(let k=0;k<10;k++){let c=(N[k]||{})[i],z=T[k+'_'+x.t]===undefined?T[k+'_'+x.t]=tier(k,x.t):T[k+'_'+x.t];b.push(c&&z!=null?Math.max(-.015,Math.min(.015,(wr(c)-z)*.3*c[1]/(c[1]+1500))):null)}
+for(let k=0;k<10;k++)if(b[k]==null){let d=1;while(d<10&&b[k-d]==null&&b[k+d]==null)d++;b[k]=b[k-d]??b[k+d]??0}
+let f=x.f.match(/^([wvs])\w+\/(\w+)\.\w+$/),pop=[];for(let k=0;k<10;k++){let c=(N[k]||{})[i];pop.push(x.s&&c?Math.round(99*Math.sqrt(c[1]/top(k))):0)}
+return[x.e,x.l,x.r,...[...m.map(v=>v*1.25),...b].map(v=>Math.round(v*1000)),...(more?[x.s?x.t:0,f?f[1]+'-'+f[2]:'-',x.n.replace(/[^\w' -]/g,'').replace(/ /g,'_'),...pop]:[])].join('.')}).join(';')||'-'}
+function ready(d,n,enemies,H){
+let E=enemies.map(e=>d.f.indexOf(e));
+return d.i.map((i,k)=>{let x=n.it[i];if(!x)return'';return[x[3],H[i]||x[3],x[4],...E.map(e=>e<0?0:d.m[k][e]),...d.b[k],x[0],x[1],x[2],...d.p[k]].join('.')}).filter(Boolean).join(';')||'-'}
+function ready2(d,z,n,enemies,H){
+let E=enemies.map(e=>z.f.indexOf(e)),at={};z.i.map((i,k)=>at[i]=k);
+return'@2;'+d.i.map((i,k)=>{let x=n.it[i],j=at[i];if(!x)return'';return[x[3],H[i]||x[3],x[4],x[0],x[1],x[2],...d.p[k],...(j==null?[0,0,0,0,0,0,0,0,0,0]:z.b[j]),...[0,1,2].flatMap(p=>E.map(e=>j==null||e<0?0:z.e[p][j][e]))].join('.')}).filter(Boolean).join(';')}
+function board(d,N,AB,lean){
+let n36=v=>Math.round(v||0).toString(36),CN={},pl=d.players.slice().sort((a,b)=>a.team-b.team||b.net_worth-a.net_worth);(d.custom_user_stats||[]).map(x=>CN[x.id]=x.name);
+return[[lean?2:1,d.duration_s,d.winning_team].join(),...pl.map(p=>{
+let s=(p.stats||[]).slice(-1)[0]||{},cu={},hs=(s.custom_user_stats||[]).map(x=>cu[CN[x.id]]=x.value),shot=cu['Enemy Hero Accuracy##Shots']||0,hit=cu['Enemy Hero Accuracy##Hits']||0,dead=(p.death_details||[]).reduce((a,k)=>a+Math.max(0,Math.min(k.death_duration_s||0,d.duration_s-k.game_time_s)),0),it=[],sk=[];
+(p.items||[]).slice().sort((a,b)=>a.game_time_s-b.game_time_s).map(i=>{let x=N.it[i.item_id];
+if(x&&x[1]!='-')lean||it.push([x[1],x[2],n36(i.game_time_s),n36(i.sold_time_s)].join());
+else if(AB[i.item_id])sk.push([AB[i.item_id],n36(i.game_time_s)].join())});
+return[p.team,p.hero_id,p.account_id,p.level||s.level||0,p.kills,p.deaths,p.assists,p.net_worth,p.last_hits,p.denies,s.player_damage||0,s.player_damage_taken||0,s.boss_damage||0,s.player_healing||0,shot?Math.round(hit/shot*100):-1,hit?Math.round((cu['Enemy Hero Accuracy##Headshots']||0)/hit*100):-1,dead,cu['PowerUp Permanent']||0,p.mvp_rank||0,...(lean?[s.damage_mitigated||0]:[])].join()+(lean?'':'~'+it.join('!'))+'~'+sk.join('!')})].join(';')}
+var C={
+o:()=>{if(A>0)save('dpown',''+A);show(load('dpown')||'-','f')},
+s:()=>{let k='dpset:'+decodeURIComponent(q[2]||''),v=decodeURIComponent(q[3]||'');if(/^[\w.,-]{1,700}$/.test(v))save(k,v);show(load(k)||'-','f')},
+h:()=>H().then(l=>P(FROM.h(l))),
+t:()=>H().then(l=>P(FROM.t(l))),
+b:()=>G('matches/metadata?account_ids='+A+'&only_filtered_players=true&include_info=true&include_player_items=true&game_mode=normal&limit=100&min_unix_timestamp='+((Date.now()/864e5|0)-180)*86400+'&order_by=start_time&order_direction=desc').then(l=>{let h={},o=[],f=(x,y)=>x.filter(v=>!y.includes(v)).length;l.map(m=>m.players.map(p=>(h[p.hero_id]=h[p.hero_id]||[]).push([...new Set(p.items.filter(i=>!i.sold_time_s).map(i=>i.item_id))])));for(let k in h){let d=[];h[k].map((a,i)=>{let b=h[k][i+1];if(b&&Math.min(a.length,b.length)>10)d.push(Math.min(f(a,b),f(b,a)))});if(d.length)o.push(k+':'+d.join())}P(o.join(';')||'-')}),
+r:()=>{let w=decodeURIComponent(q[2]).split(',').map(Number),M=w[3]>0?GM(w[3]):H().then(l=>{let d=x=>Math.abs(x.net_worth/100-w[2]),m=l.filter(x=>x.match_duration_s==w[0]&&((x.start_time/60|0)%60)==w[1]&&d(x)<=15).sort((a,b)=>d(a)-d(b))[0];if(!m)throw 0;return GM(m.match_id)});M.then(d=>{d=d.match_info||d;if(d.game_mode!=1||!d.match_paths)throw'x';hold(pack(d,d.players.some(p=>p.account_id==A)?A:w[4]))}).catch(e=>show(e=='x'?'x':'!','f'))},
+y:()=>{let [ids,lang,two]=decodeURIComponent(q[2]).split(';'),[h,...e]=ids.split(',').filter(Boolean).map(Number);Promise.all([D('h'+h+'.json'),D('items.json'),lang=='english'?{}:D('names_'+(/^\w+$/.test(lang)?lang:'english')+'.json').catch(()=>({})),two=='2'?D('z'+h+'.json').catch(()=>null):null]).then(([d,n,l,z])=>show(z&&Date.now()/864e5-z.day<60?ready2(d,z,n,e,l):ready(d,n,e,l),'f')).catch(()=>C.x(1))},
+u:()=>{let R='dprec2:'+A,old=null,day=Date.now()/864e5|0;try{old=JSON.parse(load(R)||'')}catch(e){}if(!old||day-old.day>6)old=null;
+let since=old?old.t+1:(day-365)*86400;
+return Promise.all([H(),G('matches/metadata?account_ids='+A+'&only_filtered_players=true&include_info=true&include_player_info=true&include_player_final_stats=true&game_mode=normal&limit=400&order_by=start_time&order_direction=desc&min_unix_timestamp='+since).catch(e=>e==404&&old?[]:null)]).then(([l,b])=>{
+let half=!b&&!old;l=l.filter(m=>m.game_mode==1&&W(m)>=0);
+let best={},from={},ws=0,ls=0,a=0,c=0,side=[0,0,0,0],up=(B,k,v,h,w,id,low)=>{if(v>0&&(!B[k]||(low?v<B[k][0]:v>B[k][0])))B[k]=[Math.round(v),h,w,id]},won=(m,p)=>{let o=p.player_match_outcome;return o=='Win'?1:o=='Loss'?0:+(m.winning_team==p.team)};
+l.slice().reverse().map(m=>{let w=W(m),id=m.match_id,h=m.hero_id,d=m.match_duration_s,s=m.player_team?2:0;if(w){a++;c=0}else{c++;a=0}ws=Math.max(ws,a);ls=Math.max(ls,c);side[s]+=w;side[s+1]++;
+if(d>600)up(best,'short',d,h,w,id,1);up(best,'long',d,h,w,id);up(best,'kills',m.player_kills,h,w,id);up(best,'deaths',m.player_deaths,h,w,id);up(best,'assists',m.player_assists,h,w,id);up(best,'souls',m.net_worth,h,w,id);if(d>900)up(best,'spm',m.net_worth/d*60,h,w,id);up(best,'lh',m.last_hits,h,w,id);up(best,'dn',m.denies,h,w,id)});
+let k=old||{day,t:since,best:{},lane:{},mvp:0,key:0};
+(b||[]).map(m=>{let p=(m.players||[])[0];if(!p)return;let s=p.final_stats||{},h=p.hero_id,w=won(m,p),id=m.match_id,B=k.best,t=Date.parse(String(m.start_time).replace(' ','T')+'Z')/1e3;if(t>k.t)k.t=t;
+up(B,'dmg',s.player_damage,h,w,id);up(B,'heal',s.player_healing,h,w,id);up(B,'obj',s.boss_damage,h,w,id);up(B,'taken',s.player_damage_taken,h,w,id);up(B,'mit',s.damage_mitigated,h,w,id);up(B,'neut',s.neutral_kills,h,w,id);up(B,'creep',s.creep_kills,h,w,id);up(B,'head',s.headshot_kills,h,w,id);up(B,'buffs',(s.custom_user_stats||{})['PowerUp Permanent'],h,w,id);
+if(p.mvp_rank==1)k.mvp++;else if(p.mvp_rank>1&&p.mvp_rank<4)k.key++;if(!m.not_scored&&!/score|penal/i.test(p.player_match_outcome||'')){let L=k.lane[p.assigned_lane]=k.lane[p.assigned_lane]||[0,0];L[0]++;L[1]+=w}});
+if(b)save(R,JSON.stringify(k));Object.assign(best,k.best);
+let text=[[l.length,new Set(l.map(m=>m.hero_id)).size,ws,ls,l.length?Math.round(l.reduce((q,m)=>q+m.match_duration_s,0)/l.length):0,k.mvp,k.key].join(),side.join(),Object.entries(k.lane).filter(([x])=>+x>0).map(([x,v])=>x+':'+v.join(':')).join(),Object.entries(best).map(([x,v])=>x+':'+v.slice(0,3).join(':')).join('!'),Object.entries(best).filter(([x,v])=>v[3]>0).map(([x,v])=>x+':'+(+v[3]).toString(36)).join('!')].join(';');
+if(!half)return P(text);let o=load(K)||'';show(/dmg:/.test(o)?o:text,'f')})},
+v:()=>Promise.all([H(),G('players/hero-stats?account_ids='+A).catch(()=>[])]).then(([l,s])=>{let h={},run=0;
+l.filter(m=>m.game_mode==1&&W(m)>=0).reverse().map(m=>{let w=W(m),x=h[m.hero_id]=h[m.hero_id]||[0,0];run=w?run+1:0;x[0]+=100+(w?100:0)+(run>2?25:0);x[1]++});
+s.map(x=>{let c=x.mvp_rank_counts||[];if(h[x.hero_id])h[x.hero_id][0]+=50*(c[0]||0)+25*((c[1]||0)+(c[2]||0))});
+P(Object.entries(h).map(([k,x])=>[k,x[0],x[1]].join()).join(';')||'-')}),
+m:()=>G('players/hero-stats?account_ids='+A).then(l=>P(l.filter(x=>x.matches_played>0&&x.networth_per_min).map(x=>{let n=x.matches_played;return[x.hero_id,n,(x.kills/n).toFixed(2),Math.round(x.total_player_damage/n),Math.round(x.networth_per_min*x.time_played/60/n),(x.assists/n).toFixed(2),Math.round(x.total_boss_damage/n)].join()}).join(';')||'-')),
+w:()=>C.k(1),
+k:lean=>Promise.all([GM(+q[2]),D('items.json'),D('abilities.json')]).then(([d,n,a])=>hold(board(d.match_info||d,n,a,lean))).catch(()=>show('!','f')),
+d:()=>{let [k,h,b]=decodeURIComponent(q[2]).split('.'),R={0:'&max_average_badge=39',1:'&min_average_badge=40&max_average_badge=59',2:'&min_average_badge=60&max_average_badge=79',3:'&min_average_badge=80&max_average_badge=99',4:'&min_average_badge=100'},c='dpcur:'+h+'.'+b,day=Date.now()/864e5|0,line=l=>l.filter(x=>x.game_time<=3600).map(x=>[x.game_time,Math.round(x.net_worth_avg),x.kills_avg.toFixed(2),x.deaths_avg.toFixed(2),x.assists_avg.toFixed(2)].join()).join(';'),ask=r=>G('analytics/player-performance-curve?resolution=0&hero_ids='+(+h)+r+'&min_unix_timestamp='+(day-7)*86400).then(l=>{if(l.length<6)throw 0;return line(l)});D('h'+h+'.json').then(d=>{let t=k=='c'?d.c[b]||d.c.a:d.q;if(!t)throw 0;show(t,'f')}).catch(()=>{if(k!='c')return show('!','f');let o=(load(c)||'').split('|');if(o[1]&&day-o[0]<1)return show(o[1],'f');if(Date.now()-load(c+'x')<36e5)return show(o[1]||'!','f');save(c+'x',Date.now());ask(R[b]||'').catch(()=>ask('')).then(t=>{save(c,day+'|'+t);show(t,'f')}).catch(()=>show(o[1]||'!','f'))})},
+x:more=>{let [ids,lang]=decodeURIComponent(q[2]).split(';'),[h,...e]=ids.split(',').filter(Boolean).map(Number),S='analytics/item-stats?min_matches=30',Z=u=>G(u).catch(()=>[]),kept='dp:shop'+q[2],day=Date.now()/864e5|0;
+if(more){let o=(load(kept)||'').split('|');if(o[1]&&day-o[0]<1)return show(o[1],'f')}
+Promise.all([names(lang),G(S+'&hero_ids='+h),Z(S+'&hero_ids='+h+'&bucket=net_worth_by_5000'),Z(S+'&hero_ids='+h+'&bucket=enemy_hero'),more?[]:Z(S),...e.map(i=>more?[]:Z(S+'&enemy_hero_ids='+i))]).then(r=>{let t=shop(r,e,more);if(more)save(kept,day+'|'+t);show(t,'f')}).catch(()=>{let o=(load(kept)||'').split('|');show(more&&o[1]||'!','f')})},
+g:()=>G(decodeURIComponent(q[2]).replace(/^[/.]+/,'').replace(/match_ids=([\d.]+)/,x=>x.replace(/\./g,','))).then(l=>P([].concat(l).map(x=>decodeURIComponent(q[3]||'').split('|').map(f=>f.split('.').reduce((o,k)=>o==null?o:o[k],x)).join()).join(';')||'-'))
+};
+if(C[m]){if('rwk'.includes(m)&&(last=load(K)))show(last,'f');else if('orsxydkw'.includes(m))C[m]();else if((last=load(K))&&young())show(last,'f');else{if(last)show(last,'c');C[m]().catch(e=>{if(last)show(last,'f');else show('!','f')})}}
+}
+try{navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
+let CH=/^\?f(\d*)/.exec(location.search);
+if(!CH){
+let timer,q=location.hash.slice(1).split(','),T=+q[0]+q[1];
+main(q.join(','),(kind,s)=>{clearInterval(timer);let c=s.match(/.{1,900}/g)||['-'],i=0,n=0;let f=()=>{document.title=['DPW',T,kind,i,c.length,c[i]].join('|');if(++i>=c.length){i=0;if(++n>12)clearInterval(timer)}};f();timer=setInterval(f,70)});
+}else{
+let N=+CH[1]||3000,seen={},out=[],turn=0,ack=0,
+frames=(id,kind,s)=>{let c=s.match(new RegExp('.{1,'+N+'}','g'))||['-'];out=out.filter(o=>o.id!=id||o.kind=='f');out.push({id,kind,c,i:0,n:0})},
+take=()=>{let got=[];location.hash.slice(1).split(';').map(r=>{let i=r.indexOf('~'),id=r.slice(0,i);if(i<1)return;got.push(id);if(!seen[id]){seen[id]=1;main(r.slice(i+1),(k,s)=>frames(id,k,s))}});if(got.length){out=out.filter(o=>o.kind!='a');out.unshift({id:'0',kind:'a',c:[got.join(' ')],i:0,n:0})}};
+onhashchange=take;take();
+setInterval(()=>{if(!out.length)return;turn=turn%out.length;let o=out[turn];document.title=['DPX',o.id,o.kind,o.i,o.c.length,o.c[o.i].length,o.c[o.i]].join('|');if(++o.i>=o.c.length){o.i=0;if(++o.n>=(o.kind=='a'?3:o.c.length>6?5:8))out.splice(turn,1);else turn++}},30);
+}
+</script>
