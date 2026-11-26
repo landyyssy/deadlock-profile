@@ -15,7 +15,7 @@ async function get(u, tries = 12) {
   throw new Error('no answer: ' + u);
 }
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const part = html.slice(html.indexOf('var hash='), html.indexOf('// the same text as shop()'));
+const part = html.slice(html.indexOf('var hash='), html.indexOf('function ready('));
 const { hash, res, shop } = new Function(part.replace(/fetch\(/g, 'null(') + ';return {hash,res,shop}')();
 const write = (n, o) => fs.writeFileSync(new URL(n, OUT), JSON.stringify(o));
 fs.mkdirSync(OUT, { recursive: true });
