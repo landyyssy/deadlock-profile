@@ -62,6 +62,7 @@ for (const b in BAND) try {
   const l = await curve(BAND[b]), by = Object.fromEntries(every.map(x => [x[0], x]));
   ratio[b] = Object.fromEntries(l.filter(x => by[x[0]]).map(x => [x[0], x.map((v, i) => i && by[x[0]][i] > 0 ? v / by[x[0]][i] : 1)]));
 } catch (e) { console.log('no group', b); }
+if (every.length > 5) write('every.json', Object.fromEntries([['a', pack(every)], ...Object.keys(ratio).map(b => [b, pack(every.map(x => x.map((v, i) => i && ratio[b][x[0]] ? v * ratio[b][x[0]][i] : v)))])]));
 const keep = () => { if (process.env.CI) try { execSync('git add -A data && (git diff --cached --quiet || (git commit -q -m "Data ' + new Date().toISOString().slice(0, 10) + '" && git pull -q --rebase && git push -q))', { cwd: new URL('..', import.meta.url), shell: '/bin/bash' }); } catch (e) { console.log('not kept:', String(e).slice(0, 120)); } };
 let done = 0;
 for (const h of heroes) {
