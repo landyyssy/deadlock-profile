@@ -1,4 +1,4 @@
-<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; connect-src 'self' https://api.deadlock-api.com; worker-src 'self'"><title>-</title><script>function main(HASH,send){
+<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; connect-src 'self' https://api.deadlock-api.com https://dp-count.dlplus-stats.workers.dev; worker-src 'self'"><title>-</title><script>function main(HASH,send){
 var q=HASH.split(','),A=+q[0],m=q[1],last,
 K=('rwk'.includes(m)?'dp4:':'dp:')+q.join(','),S=localStorage,
 load=k=>{try{return S.getItem(k)}catch(e){}},
@@ -144,6 +144,7 @@ g:()=>G(decodeURIComponent(q[2]).replace(/^[/.]+/,'').replace(/match_ids=([\d.]+
 if(C[m]){if('rwk'.includes(m)&&(last=load(K)))show(last,'f');else if('orsxydkw'.includes(m))C[m]();else if((last=load(K))&&young())show(last,'f');else{if(last)show(last,'c');C[m]().catch(e=>{if(last)show(last,'f');else show('!','f')})}}
 }
 try{navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
+try{let PING='https://dp-count.dlplus-stats.workers.dev',S=localStorage,t=new Date().toISOString().slice(0,10);if(PING.startsWith('https://')&&S.getItem('dpping')!=t){S.setItem('dpping',t);let v=(/[?&]v=(\w+)/.exec(location.search)||[])[1]||'old',w=S.getItem('dpw');fetch(PING+'/p?v='+v+'&w='+(w||'')+'&m='+(S.getItem('dpm')||'')+'&n='+(w?0:1)).then(r=>r.json()).then(j=>{S.setItem('dpw',j.w);S.setItem('dpm',j.m)}).catch(()=>{})}}catch(e){}
 let CH=/^\?f(\d*)/.exec(location.search);
 if(!CH){
 let timer,q=location.hash.slice(1).split(','),T=+q[0]+q[1];
